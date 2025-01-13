@@ -17,6 +17,28 @@ class OrchestratorAgent:
         self.user_id = user_id
         self.conversation_manager = ConversationManager()  # Manejo de conversaciones con TinyDB
         LogManager.start_log_viewer()  # Iniciar el visor de logs
+        
+        self.refine_query_prompt = PromptTemplate(
+            input_variables=["query", "context"],
+            template="""
+            f"Historial de la conversación:\n{context}\n\n"
+            f"Consulta actual:\n{query}\n\n"
+            "Genera una consulta refinada y específica para ser clasificada por un sistema de enrutamiento. "
+            "La consulta debe ser concisa y contener únicamente información necesaria para la clasificación técnica:"
+            """
+        )
+        
+        self.orchestrator_prompt = PromptTemplate(
+            input_variables=["query", "agent_response", "context"],
+            template=(
+                "Eres un orquestador técnico especializado en Linux, análisis de datos en Python, y tecnologías generales. "
+                "Tu tarea es enriquecer la respuesta proporcionada con base en la consulta original y el historial.\n\n"
+                "Consulta del usuario:\n{query}\n\n"
+                "Respuesta del agente o herramienta seleccionada:\n{agent_response}\n\n"
+                "Historial de la conversación:\n{context}\n\n"
+                "Genera una respuesta clara, profesional y detallada para el usuario:"
+            )
+        )
 
     def preprocess_query(self, query: str, conversation_id: str) -> str:
         """
@@ -29,15 +51,9 @@ class OrchestratorAgent:
         # Obtener historial de conversación formateado
         context = self.conversation_manager.get_formatted_conversation(conversation_id)
 
-        input_for_openai = (
-            f"Historial de la conversación:\n{context}\n\n"
-            f"Consulta actual:\n{query}\n\n"
-            "Genera una consulta refinada y específica para ser clasificada por un sistema de enrutamiento. "
-            "La consulta debe ser concisa y contener únicamente información necesaria para la clasificación técnica:"
-        )
 
         # Generar la consulta refinada
-        refined_query = self.llm.invoke(input_for_openai).content.strip()
+        refined_query = self.llm.invoke(self.refine_query_prompt.format(query=query, context=context)).content.strip()
         print(f"Consulta refinada: {refined_query}")
         return refined_query
 
@@ -55,15 +71,14 @@ class OrchestratorAgent:
         """
         try:
             # Validar que la respuesta del router contenga la estructura esperada
-            if not isinstance(router_response, dict) or "response" not in router_response:
+            if not isinstance(router_response, dict) or "module" not in router_response:
                 return f"Error en el router: Formato de respuesta inválido."
 
             # Extraer datos del router
-            router_data = router_response.get("response", {})
-            module = router_data.get("module", "desconocido")
-            response = router_data.get("response", "Sin respuesta proporcionada.")
-            conversation_id = router_response.get("conversation_id", "Sin ID de conversación.")
-            optional_id = router_response.get("optional_id", "Sin ID opcional.")
+            module = router_response.get("module", "desconocido")
+            response = router_response.get("response", "Sin respuesta proporcionada.")
+            conversation_id = conversation_id  # Ya lo tenemos como parámetro
+            optional_id = "Sin ID opcional"  # Valor por defecto si no existe
 
             # Historial de conversación previo
             conversation = self.conversation_manager.get_conversation(conversation_id)
@@ -88,65 +103,46 @@ class OrchestratorAgent:
 
     def handle_query(self, query: str, conversation_id: str) -> str:
         """
-        Maneja una consulta completa, incluyendo la orquestación entre agentes y herramientas.
+        Orquesta el flujo completo esperando únicamente la respuesta final del router
+        y enriqueciéndola antes de enviarla al usuario.
         """
-        print("\n=== Iniciando procesamiento de consulta en el orquestador ===")
-        print(f"ID de conversación: {conversation_id}")
-
         try:
-            # Recuperar o inicializar la conversación
-            self.conversation_manager.get_conversation(conversation_id)
-
-            # Preprocesar la consulta
+            # Preprocesar la consulta para refinarla
             refined_query = self.preprocess_query(query, conversation_id)
-            print(f"Consulta refinada: {refined_query}")
 
-            # Enviar la consulta al router
+            # Enviar la consulta refinada al router
             router_response = route_query_with_langchain(refined_query)
-            print(f"Respuesta del router: {router_response}")
+            print(f"Respuesta del router (tipo {type(router_response)}): {router_response}")
 
-            if not isinstance(router_response, dict):
-                raise ValueError(f"Respuesta del router inválida: {router_response}")
+            # Validar que la respuesta sea un diccionario
+            if not isinstance(router_response, dict) or "response" not in router_response:
+                raise ValueError("Error en el router: Formato de respuesta inválido.")
 
-            # Manejar la respuesta del router y crear contexto
-            context = self.handle_router_response(query, router_response, conversation_id)
-            print("Contexto generado correctamente")
+            # Obtener la respuesta final del router
+            agent_response = router_response["response"]
+            print(f"Respuesta final recibida del router: {agent_response}")
 
-            # Agregar la consulta original al historial
-            self.conversation_manager.add_message(conversation_id, "user", query)
+            # Obtener historial de la conversación para enriquecer la respuesta
+            context = self.conversation_manager.get_formatted_conversation(conversation_id)
 
-            # Crear el prompt para el modelo
-            prompt_template = PromptTemplate(
-                input_variables=["query"],
-                template=(
-                    "Eres un agente orquestador con conocimiento especializado en sistemas operativos Linux, análisis de datos en Python "
-                    "y tecnologías generales. Tu tarea es analizar la consulta proporcionada y decidir entre:\n\n"
-                    "1. Responder directamente, si tienes suficiente información.\n"
-                    "2. Delegar a un agente especializado si la consulta no está dentro de tu dominio o requiere análisis avanzado.\n\n"
-                    "Instrucciones:\n"
-                    "- Si la consulta está relacionada con sistemas operativos Linux (comandos, configuraciones, arquitecturas de servidores), responde directamente.\n"
-                    "- Si la consulta está relacionada con Python para análisis de datos (bibliotecas, algoritmos o prácticas específicas), rútala al 'Agent_One'.\n"
-                    "- Si la consulta es sobre múltiples lenguajes de programación o tecnologías en general, rútala al 'Agent_Two'.\n\n"
-                    "Formato de respuesta esperado:\n"
-                    "1. Para responder directamente: Proporciona una respuesta clara y completa.\n"
-                    "2. Para delegar: Escribe únicamente 'Enviar a [Nombre del Agente]'.\n\n"
-                    "Consulta:\n"
-                    "{query}\n\n"
-                    "Respuesta:"
-                )
+            # Crear el prompt para enriquecer la respuesta
+            prompt = self.orchestrator_prompt.format(
+                query=query,
+                agent_response=agent_response,
+                context=context
             )
-            prompt = prompt_template.format(query=context)
             print("Prompt generado correctamente")
 
-            # Obtener la respuesta del modelo
+            # Obtener la respuesta final del modelo
             response = self.llm.invoke(prompt)
-            print("Respuesta del modelo obtenida")
+            print("Respuesta enriquecida obtenida del modelo")
 
-            # Guardar la respuesta final en el historial
+            # Guardar la consulta y la respuesta final en el historial
             final_response = response.content.strip()
+            self.conversation_manager.add_message(conversation_id, "user", query)
             self.conversation_manager.add_message(conversation_id, "system", final_response)
-            print("guardado en el historial")
-            
+            print("Respuesta final guardada en el historial")
+
             # Crear y registrar el log de la interacción
             log_entry = LogManager.create_log_entry(
                 user_id=self.user_id,
@@ -157,13 +153,13 @@ class OrchestratorAgent:
                 final_response=final_response
             )
             LogManager.log_interaction(log_entry)
-            print("log creado")
+            print("Log creado")
+
             return final_response
 
-
-            
         except Exception as e:
             print(f"Error en handle_query: {str(e)}")
             import traceback
             print(traceback.format_exc())
             return f"Error procesando la consulta en el orquestador: {str(e)}"
+
