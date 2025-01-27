@@ -25,10 +25,11 @@ docs = list_available_documents()
 if 'error' in docs:
     print(f"Error: {docs['error']}")
 else:
-    print(f"Encontrados {docs['total_documents']} documentos")
-    print("\nLista de documentos:")
-    for doc in docs['documents']:
-        print(f"- {doc}")
+    print("Documentos encontrados")
+    #print(f"Encontrados {docs['total_documents']} documentos")
+    #print("\nLista de documentos:")
+    #for doc in docs['documents']:
+    #    print(f"- {doc}")
 
 # Herramienta para embeddings
 def embeddings_tool(query: str) -> str:

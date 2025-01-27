@@ -14,8 +14,9 @@ La arquitectura multiagente permite:
 - Sistema de procesamiento de consultas basado en múltiples agentes especializados
 - Búsqueda semántica avanzada utilizando embeddings y similitud vectorial
 - Integración con modelos de lenguaje de OpenAI para procesamiento de lenguaje natural
+- Implementación de grafos para modelado de decisiones y flujos de trabajo
 - Sistema de memoria conversacional para mantener contexto entre interacciones
-- Capacidad de procesamiento de documentos en múltiples formatos (PDF, TXT, DOCX)
+- Capacidad de procesamiento de documentos en múltiples formatos
 - API REST para fácil integración con sistemas externos
 - Sistema de logging detallado para monitoreo y debugging
 - Arquitectura modular y extensible para añadir nuevas funcionalidades
@@ -163,7 +164,7 @@ python manage.py createsuperuser
    - Formatos soportados: PDF, TXT, DOCX
    - Organiza los documentos en subcarpetas según la biblioteca correspondiente
 
-2. **Generación de Embeddings**
+2. **Generación de Embeddings y visor de logs**
    Utiliza el script de comandos para inicializar las bibliotecas de vectores:
    ```bash
    # Inicializar todas las bibliotecas
@@ -173,6 +174,12 @@ python manage.py createsuperuser
    python commands.py initialize_vectors orchestrator  # Solo orquestador
    python commands.py initialize_vectors agent_one     # Solo Agente 1
    python commands.py initialize_vectors agent_two     # Solo Agente 2
+   ```
+
+3. **Visor de logs**
+   Utiliza el script de comandos para abrir el visor de logs:
+   ```bash
+   python commands.py logs
    ```
 
    Para ver la ayuda y lista de comandos disponibles:

@@ -83,9 +83,6 @@ def query_vector_library(query):
     return response.response
 
 
-# ============================
-# EJECUCIÓN AUTOMÁTICA
-# ============================
 if __name__ == "__main__":
     print("Iniciando la biblioteca de vectores...")
     

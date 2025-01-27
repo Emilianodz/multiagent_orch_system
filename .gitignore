@@ -67,3 +67,4 @@ htmlcov/
 
 # Memora
 conversations.json
+interaction_logs.jsonl

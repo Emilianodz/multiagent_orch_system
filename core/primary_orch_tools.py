@@ -7,9 +7,7 @@ from .generation_orch_tool import handle_generation
 from .vector_orch_library import query_vector_library
 from .pdf_orch_tool import analyze_pdf_content, load_pdfs_from_directory  # Nueva importación
 
-# ============================
-# CONFIGURACIÓN
-# ============================
+
 # Cargar las variables de entorno desde .env
 dotenv.load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
@@ -22,11 +20,6 @@ llm = OpenAI(
     api_key=OPENAI_API_KEY,
     model="gpt-3.5-turbo-instruct"  # o "text-davinci-003" si lo prefieres
 )
-
-
-# ============================
-# HERRAMIENTAS EXISTENTES
-# ============================
 
 # Herramienta para embeddings
 def embeddings_tool(query: str) -> str:

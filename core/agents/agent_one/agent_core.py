@@ -1,12 +1,24 @@
 from langchain_openai import ChatOpenAI
 from langchain.prompts import PromptTemplate
 import os
+import logging
 from .primary_tools import embeddings_tool, generation_tool, pdf_analysis_tool, list_available_documents
 
+# Configurar logger
+logger = logging.getLogger('agent_one')
+logger.setLevel(logging.INFO)
+console_formatter = logging.Formatter('(agent_one) %(message)s')
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(console_formatter)
+logger.handlers = []
+logger.addHandler(console_handler)
+logger.propagate = True
+
 class SimpleAgent:
-    def __init__(self, user_id):
+    def __init__(self, user_id: str = "default_user", conversation_id: str = "default_conversation"):
         self.llm = ChatOpenAI(temperature=0.7, api_key=os.getenv("OPENAI_API_KEY"))
         self.user_id = user_id
+        self.conversation_id = conversation_id
 
         # Definir el prompt base
         self.base_prompt = PromptTemplate(
@@ -35,22 +47,22 @@ class SimpleAgent:
         """
         docs = list_available_documents()
         if 'error' in docs:
-            print(f"Error: {docs['error']}")
+            logger.error(f"Error: {docs['error']}")
         else:
-            print(f"Encontrados {docs['total_documents']} documentos")
+            logger.info(f"Encontrados {docs['total_documents']} documentos")
         try:
             classification_query = self.classification_prompt.format(query=query, documents=docs)
             response = self.llm.invoke(classification_query).content.strip()
             return response.lower()
         except Exception as e:
-            print(f"Error clasificando la herramienta: {str(e)}")
+            logger.error(f"Error clasificando la herramienta: {str(e)}")
             return "llm"  
 
-    def handle_query(self, query: str, conversation_id: str) -> str:
+    def handle_query(self, query: str) -> str:
         """
         Maneja una consulta llamando directamente a las herramientas según el tipo de consulta.
         """
-        print("\n=== Iniciando procesamiento de consulta en Agent_Two ===")
+        logger.info("=== Iniciando procesamiento de consulta ===")
         try:
             # Validación básica de la consulta
             query = query.strip()
@@ -59,35 +71,32 @@ class SimpleAgent:
 
             # Clasificar la consulta para seleccionar la herramienta adecuada
             selected_tool = self.classify_tool(query)
-            print(f"Herramienta seleccionada: {selected_tool}")
+            logger.info(f"Herramienta seleccionada: {selected_tool}")
 
             # Validar y ejecutar la herramienta correspondiente
             if selected_tool == "embeddings_tool":
-                print("Usando la herramienta de biblioteca de vectores...")
+                logger.info("Usando biblioteca de vectores")
                 response = embeddings_tool(query)
 
             elif selected_tool == "generation_tool":
-                print("Usando la herramienta de generación de texto...")
+                logger.info("Usando generación de texto")
                 response = generation_tool(query)
 
             elif selected_tool == "pdf_analysis_tool":
-                print("Usando la herramienta de análisis de PDFs...")
-                
-                # Verificar si hay documentos PDF disponibles antes de ejecutar
-                pdf_directory = "path_to_pdf_directory"  # Ruta a los PDFs
+                logger.info("Usando análisis de PDFs")
+                pdf_directory = "path_to_pdf_directory"
                 if not os.path.exists(pdf_directory) or not os.listdir(pdf_directory):
                     return "No hay documentos PDF disponibles para analizar."
-                
                 response = pdf_analysis_tool(query)
 
-            else:  # Caso por defecto: usar LLM directamente
-                print("Usando LLM directamente...")
+            else:
+                logger.info("Usando LLM directamente")
                 formatted_prompt = self.base_prompt.format(query=query)
                 response = self.llm.invoke(formatted_prompt).content.strip()
 
             return response
 
         except Exception as e:
-            print(f"Error en Agent_Two: {str(e)}")
-            return f"Error procesando la consulta en Agent_Two: {str(e)}"
+            logger.error(f"Error procesando la consulta: {str(e)}")
+            return f"Error procesando la consulta: {str(e)}"
 

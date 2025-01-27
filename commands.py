@@ -2,6 +2,7 @@ import sys
 from core.vector_orch_library import initialize_vector_library as initialize_orchestrator_library
 from core.agents.agent_one.vector_library import initialize_vector_library as initialize_agent_one_library
 from core.agents.agent_two.vector_library import initialize_vector_library as initialize_agent_two_library
+from core.log_control import LogManager
 
 
 def print_help():
@@ -17,6 +18,10 @@ def print_help():
       - 'agent_two': Inicializa la biblioteca del Agente 2.
       - 'all': Inicializa todas las bibliotecas.
     - Uso: python commands.py initialize_vectors orchestrator
+    
+2. logs
+    - Descripción: Abre el visor de logs.
+    - Uso: python commands.py logss
 
 === NOTAS ===
 - Asegúrate de que las carpetas correspondientes ('documents/') contengan archivos antes de ejecutar.
@@ -75,6 +80,13 @@ def initialize_all():
     print("¡Todas las bibliotecas inicializadas con éxito!")
 
 
+def view_logs():
+    """
+    Comando para abrir el visor de logs en una nueva ventana
+    """
+    LogManager.start_log_viewer()
+
+
 if __name__ == "__main__":
     # Verificar argumentos de la consola
     if len(sys.argv) < 2:
@@ -105,6 +117,8 @@ if __name__ == "__main__":
             print_help()
     elif command in ["help", "--help", "-h"]:
         print_help()
+    elif command == "logs":
+        view_logs()
     else:
         print(f"Error: Comando desconocido '{command}'.")
         print_help()
